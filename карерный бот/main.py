@@ -79,7 +79,7 @@ async def back_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 # Основная функция
 def main():
     # Вставьте сюда свой токен
-    application = Application.builder().token("6919803088:AAFNDYxJ631t9ZvHjVp4Q3oG5o2rZl7Yx6w").build()
+    application = Application.builder().token("token").build()
 
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CallbackQueryHandler(category_handler, pattern='^category_'))
