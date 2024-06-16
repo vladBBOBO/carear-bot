@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler
 import sqlite3
 
 # Настройка логирования
@@ -15,11 +15,10 @@ c.execute('''CREATE TABLE IF NOT EXISTS advice
              (id INTEGER PRIMARY KEY, category TEXT, advice TEXT)''')
 conn.commit()
 
-# Заполнение таблицы примерами данных
+# Заполнение таблицы примерами данных (если таблица пуста)
 sample_data = [
     ('IT', 'Рассмотрите возможность стать разработчиком программного обеспечения.'),
     ('IT', 'Попробуйте изучить Data Science.'),
-    ('IT', 'Советую посетить эти сайты.'),
     ('Marketing', 'Карьерный путь в цифровом маркетинге может быть интересным.'),
     ('Marketing', 'Подумайте о роли менеджера по продукту.'),
     ('Design', 'Изучите графический дизайн и создавайте визуальные концепции.'),
@@ -51,38 +50,34 @@ questions = {
         ("Вам нравится анализировать рынок?", 'Да', 'Нет'),
         ("Вы творческий человек?", 'Да', 'Нет'),
     ],
-     'Desing': [
-         ("Вам нравится создовать что то новое?", 'Да', 'Нет'),
-         ("Вы творсеский человек?" 'Да', 'Нет',),
-     ],
-     'Finance': [
-         ("Вы хорошо умеете считать?","Да", "Нет", ),
-         ("Готовы ли ви прешитывать тонны отчетав?"),
-     ],
-     'Healthcare': [
-         ("Знаете ли вы что надо делать что делать при певой помоши?", "Да", "Нет",),
-         ("Вы переносите вид крови?" "Да", "Нет",),
-     ],
-     'Education': [
-         ("Вы любите детей?" "Да", "Нет",),
-         ("Вы готовы терпеть плохое поведение от некоторых учеников", "Да", "Нет",),
-     ],
-     'Engineering': [
-         ("Вы хорошо розбираетесь в физике?", "Да", "Нет,"),
-         ("У вас спокойные руки?" "да", "Нет",),
-     ],
-     'Law': [
-         ("Вы хорошо знаете законы вашой страны?" "Да", "Нет",),
-         ("Вы изучили права человека в вашей стране?" "Да", "Нет",),
-         ("Вы знаете юридические правила?", "Да", "Нет",),
-     ],
-     'Arts': [
-         ("Вы б назвали себа хорошим актером?","Да", "Нет",),
-         ("Вы имели опыт в розыгрывании представлений?", "Да", "Нет",),
-     ],
-    
-
-    # Добавьте вопросы для других категорий
+    'Design': [
+        ("Вы увлечены визуальным искусством?", 'Да', 'Нет'),
+        ("Вы любите создавать что-то новое?", 'Да', 'Нет'),
+    ],
+    'Finance': [
+        ("Вам нравится работать с цифрами?", 'Да', 'Нет'),
+        ("Вы внимательны к деталям?", 'Да', 'Нет'),
+    ],
+    'Healthcare': [
+        ("Вы хотите помогать людям?", 'Да', 'Нет'),
+        ("Вас интересуют медицинские науки?", 'Да', 'Нет'),
+    ],
+    'Education': [
+        ("Вам нравится обучать других?", 'Да', 'Нет'),
+        ("Вы терпеливый человек?", 'Да', 'Нет'),
+    ],
+    'Engineering': [
+        ("Вам интересны технологии?", 'Да', 'Нет'),
+        ("Вы любите решать сложные задачи?", 'Да', 'Нет'),
+    ],
+    'Law': [
+        ("Вам интересны законы и правосудие?", 'Да', 'Нет'),
+        ("Вы умеете хорошо аргументировать?", 'Да', 'Нет'),
+    ],
+    'Arts': [
+        ("Вы творческая личность?", 'Да', 'Нет'),
+        ("Вы увлечены искусством?", 'Да', 'Нет'),
+    ]
 }
 
 # Определение состояний для ConversationHandler
@@ -106,6 +101,12 @@ def main_menu_keyboard():
         [InlineKeyboardButton('Искусство', callback_data='category_Arts')]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(text='Выберите интересующую категорию:', reply_markup=main_menu_keyboard())
+    return CATEGORY
 
 # Обработчик выбора категории
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -153,18 +154,16 @@ async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     category = context.user_data['category']
     answers = context.user_data['answers']
 
-    # Здесь вы можете добавить логику для определения наилучшего совета в зависимости от ответов
-    advices = get_advice(category)
+    # Логика определения лучшего совета
+    advice = get_best_advice(category, answers)
     response = f'Ваши ответы: {", ".join(answers)}\n'
-    response += f'Советы для карьеры в категории {category}:\n'
-    for advice in advices:
-        response += f"- {advice[0]}\n"
+    response += f'Наиболее подходящий совет для карьеры в категории {category}:\n'
+    response += f"- {advice}"
 
     await update.callback_query.edit_message_text(text=response, reply_markup=back_to_main_menu_keyboard())
     logging.info(f"Result shown for category {category}")
     return RESULT
 
-# Кнопка "Назад"
 def back_to_main_menu_keyboard():
     keyboard = [[InlineKeyboardButton('Назад', callback_data='main_menu')]]
     return InlineKeyboardMarkup(keyboard)
@@ -176,15 +175,27 @@ async def back_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await query.edit_message_text(text='Выберите интересующую категорию:', reply_markup=main_menu_keyboard())
     return ConversationHandler.END
 
-# Функция для получения совета по категории
-def get_advice(category):
-    c.execute('SELECT advice FROM advice WHERE category = ?', (category,))
-    return c.fetchall()
+def get_best_advice(category, answers):
+    c.execute('SELECT DISTINCT advice FROM advice WHERE category = ?', (category,))
+    advices = c.fetchall()
+    # Простой пример логики оценки советов
+    score = {advice[0]: 0 for advice in advices}
+    for answer in answers:
+        if answer == 'Yes':
+            for advice in advices:
+                if 'да' in advice[0].lower():
+                    score[advice[0]] += 1
+        else:
+            for advice in advices:
+                if 'нет' in advice[0].lower():
+                    score[advice[0]] += 1
+    best_advice = max(score, key=score.get)
+    return best_advice
 
 # Основная функция
 def main():
     # Вставьте сюда свой токен
-    application = Application.builder().token("Token").build()
+    application = Application.builder().token("").build()
 
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(category_handler, pattern='^category_')],
@@ -204,4 +215,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
+           
